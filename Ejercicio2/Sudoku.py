@@ -1,1 +1,3 @@
-#Empezamos
+
+import pygame
+import random
