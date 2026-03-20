@@ -2,114 +2,118 @@ import pygame
 import random
 import sys
 
-# Inicialización
+# --- CONFIGURACIÓN INICIAL ---
 pygame.init()
-
-# Colores
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GRAY = (200, 200, 200)
-BLUE = (0, 0, 255)
-
-# Configuración básica
-WINDOW_SIZE = (540, 600) # 60px extra abajo para el menú
+WINDOW_SIZE = (540, 620)
 CELL_SIZE = 540 // 9
 screen = pygame.display.set_mode(WINDOW_SIZE)
-pygame.display.set_caption("SUDOKU - IA")
+pygame.display.set_caption("SUDOKU IA - Algoritmo A*")
 
-# Fuentes
-font_large = pygame.font.SysFont("calibri", 40, bold=True)
-font_small = pygame.font.SysFont("calibri", 25)
+# Colores y Fuentes
+WHITE, BLACK, BLUE, RED = (255, 255, 255), (0, 0, 0), (0, 0, 255), (200, 0, 0)
+font_num = pygame.font.SysFont("calibri", 40, bold=True)
+font_ui = pygame.font.SysFont("calibri", 20)
 
-def is_valid_move(grid, row, col, num):
-    for x in range(9):
-        if grid[row][x] == num or grid[x][col] == num:
-            return False
-    start_row, start_col = 3 * (row // 3), 3 * (col // 3)
+# --- LÓGICA DE IA ---
+
+def is_valid_move(grid, row, col, num):  #Define si el movimiento que se hizo es correcto
+    for x in range(9):  #Escogie los numeros del a al 9
+        if grid[row][x] == num or grid[x][col] == num:  #Se desplaza ya sea por columna o por fila, para saber si el numero es igual en alguna de esas posiciones 
+            return False #Regresa que el numero no es valido 
+
+    start_r, start_c = 3 * (row // 3), 3 * (col // 3) # Calcula la posición inicial del subcuadro 3x3 correspondiente
     for i in range(3):
-        for j in range(3):
-            if grid[start_row + i][start_col + j] == num:
+        for j in range(3):  # Recorre el subcuadro 3x3
+            if grid[start_r + i][start_c + j] == num: #Busca que el numero no coincida con alguno en el recuadro
                 return False
     return True
 
-def solve_sudoku(grid):
-    for row in range(9):
-        for col in range(9):
-            if grid[row][col] == 0:
-                nums = list(range(1, 10))
-                random.shuffle(nums) # Para que cada Sudoku sea diferente
-                for num in nums:
-                    if is_valid_move(grid, row, col, num):
-                        grid[row][col] = num
-                        if solve_sudoku(grid):
-                            return True
-                        grid[row][col] = 0
-                return False
-    return True
+def get_mrv_cell(grid): #Busca la celda vacía que tenga menos opciones posibles.
+    """ Heurística MRV: Busca la celda con menos opciones legales """
+    best_cell = None # Guarda la mejor celda encontrada (fila, columna)
+    min_options = 10  # Máximos posible es de 9, usamos 10 como valor inicial "grande"
+    
+    for r in range(9): # Recorre filas
+        for c in range(9):  # Recorre columnas
+            if grid[r][c] == 0: #Busca celdas vacias 
+                # Contamos cuántas opciones tiene esta celda
+                options = sum(1 for n in range(1, 10) if is_valid_move(grid, r, c, n)) # Cuántos números (1–9) se pueden poner en esa celda
+                if options < min_options: #Busca la celda con MENOS opciones disponibles
+                    min_options = options #Guarda el nuevo mínimo
+                    best_cell = (r, c) #Guarda la posición de esa celda
+                if min_options == 1: return best_cell # Si solo hay 1 opción, es la mejor
+    return best_cell
+
+def solve_astar(grid):
+    """ Implementación de A* usando la heurística MRV """
+    cell = get_mrv_cell(grid)  # Obtiene la celda vacía con menos opciones posibles
+    if not cell: return True # No hay más celdas vacías
+    
+    row, col = cell  # Obtiene las coordenadas de la celda seleccionada
+    for num in range(1, 10):  # Prueba números del 1 al 9
+        if is_valid_move(grid, row, col, num):     # Verifica si el número es válido en esa posición
+            grid[row][col] = num  # Asigna temporalmente el número a la celda
+
+            
+            # Llamada recursiva (Búsqueda en el espacio de estados)
+            if solve_astar(grid):
+                return True
+            
+            grid[row][col] = 0  # Backtracking: deshace el movimiento si no funcionó
+    return False
+
+# --- FUNCIONES DE DIBUJO ---
 
 def generate_sudoku(empty_cells):
     grid = [[0 for _ in range(9)] for _ in range(9)]
-    solve_sudoku(grid) 
-    
-    count = empty_cells
-    while count > 0:
-        row, col = random.randint(0, 8), random.randint(0, 8)
-        if grid[row][col] != 0:
-            grid[row][col] = 0
-            count -= 1
+    # Usamos A* para generar un tablero válido inicial
+    solve_astar(grid)
+    for _ in range(empty_cells):
+        r, c = random.randint(0, 8), random.randint(0, 8)
+        while grid[r][c] == 0: r, c = random.randint(0, 8), random.randint(0, 8)
+        grid[r][c] = 0
     return grid
 
-# --- NUEVAS FUNCIONES DE DIBUJO ---
-
-def draw_grid():
+def draw_all(grid, msg):
+    screen.fill(WHITE)
+    # Dibujar líneas
     for i in range(10):
-        # Líneas más gruesas para separar los bloques de 3x3
-        thickness = 4 if i % 3 == 0 else 1
-        pygame.draw.line(screen, BLACK, (0, i * CELL_SIZE), (540, i * CELL_SIZE), thickness)
-        pygame.draw.line(screen, BLACK, (i * CELL_SIZE, 0), (i * CELL_SIZE, 540), thickness)
+        thick = 4 if i % 3 == 0 else 1
+        pygame.draw.line(screen, BLACK, (0, i * CELL_SIZE), (540, i * CELL_SIZE), thick)
+        pygame.draw.line(screen, BLACK, (i * CELL_SIZE, 0), (i * CELL_SIZE, 540), thick)
+    # Dibujar números
+    for r in range(9):
+        for c in range(9):
+            if grid[r][c] != 0:
+                val = font_num.render(str(grid[r][c]), True, BLACK)
+                screen.blit(val, (c * CELL_SIZE + 20, r * CELL_SIZE + 10))
+    # UI
+    txt = font_ui.render(msg, True, BLUE)
+    screen.blit(txt, (20, 560))
+    instr = font_ui.render("1,2,3: Dificultad | ESPACIO: IA Resuelve (A*)", True, RED)
+    screen.blit(instr, (20, 585))
 
-def draw_numbers(grid):
-    for row in range(9):
-        for col in range(9):
-            if grid[row][col] != 0:
-                text = font_large.render(str(grid[row][col]), True, BLACK)
-                # Centrar el número en la celda
-                screen.blit(text, (col * CELL_SIZE + 20, row * CELL_SIZE + 10))
+# --- BUCLE PRINCIPAL ---
 
 def main():
-    difficulty_text = "Nivel: Intermedio (35)"
     grid = generate_sudoku(35)
-    running = True
+    msg = "Nivel: Intermedio"
     
-    while running:
-        screen.fill(WHITE)
-        
+    while True:
+        draw_all(grid, msg)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                pygame.quit(); sys.exit()
             
-            # Detectar teclas para dificultad
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_1:
-                    grid = generate_sudoku(20)
-                    difficulty_text = "Nivel: Fácil (20)"
-                if event.key == pygame.K_2:
-                    grid = generate_sudoku(35)
-                    difficulty_text = "Nivel: Intermedio (35)"
-                if event.key == pygame.K_3:
-                    grid = generate_sudoku(45)
-                    difficulty_text = "Nivel: Difícil (45)"
-        
-        # Dibujar elementos
-        draw_grid()
-        draw_numbers(grid)
-        
-        # Dibujar menú de instrucciones abajo
-        info = font_small.render(difficulty_text, True, BLUE)
-        menu = font_small.render("Presiona 1, 2 o 3 para cambiar nivel", True, BLACK)
-        screen.blit(info, (10, 545))
-        screen.blit(menu, (10, 570))
+                if event.key == pygame.K_1: 
+                    grid = generate_sudoku(20); msg = "Nivel: Fácil"
+                if event.key == pygame.K_2: 
+                    grid = generate_sudoku(35); msg = "Nivel: Intermedio"
+                if event.key == pygame.K_3: 
+                    grid = generate_sudoku(45); msg = "Nivel: Difícil"
+                if event.key == pygame.K_SPACE:
+                    solve_astar(grid) # Ejecutar A*
         
         pygame.display.flip()
 
