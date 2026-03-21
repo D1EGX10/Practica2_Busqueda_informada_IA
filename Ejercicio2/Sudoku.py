@@ -1,6 +1,8 @@
 import pygame
 import random
 import sys
+import time
+import tracemalloc
 
 # --- CONFIGURACIÓN INICIAL ---
 pygame.init()
@@ -113,9 +115,22 @@ def main():
                 if event.key == pygame.K_3: 
                     grid = generate_sudoku(45); msg = "Nivel: Difícil"
                 if event.key == pygame.K_SPACE:
-                    solve_astar(grid) # Ejecutar A*
-        
+                    # --- MEDICIÓN ---
+                    tracemalloc.start()
+                    start_time = time.time()
+
+                    solve_astar(grid)
+
+                    end_time = time.time()
+                    current, peak = tracemalloc.get_traced_memory()
+                    tracemalloc.stop()
+
+                    elapsed_time = end_time - start_time
+
+                    msg = f"Tiempo: {elapsed_time:.4f}s | Mem: {peak/10**6:.4f}MB"
+
         pygame.display.flip()
+
 
 if __name__ == "__main__":
     main()
