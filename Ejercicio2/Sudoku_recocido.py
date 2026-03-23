@@ -20,81 +20,88 @@ font_ui = pygame.font.SysFont("calibri", 20)
 # ---------------- IA ----------------
 
 def initial_solution(grid):
+    #Copia el tablero original
     new_grid = [row[:] for row in grid]
     
     for i in range(9):
         nums = list(range(1, 10))
-        random.shuffle(nums)
+        random.shuffle(nums)  # Copia el tablero original
         
         for j in range(9):
-            if new_grid[i][j] == 0:
-                new_grid[i][j] = nums.pop()
+            if new_grid[i][j] == 0:  # Si la celda esta vacia, pasa a la instruccion de abajo
+                new_grid[i][j] = nums.pop() # Donde a la celda vacia, se le asigna un nuevo aleatorio
     
-    return new_grid
+    return new_grid  # Regresa el tablero ya resuelto , aunque esten mal algunos numeros
 
 
-def cost(grid):
+def cost(grid): #Calcula el numero de errores en el Sudoku
     errores = 0
     
     # filas
     for row in grid:
-        errores += 9 - len(set(row))
+        errores += 9 - len(set(row)) #set(row) sirve para eliminar duplicados, osea cuenta cuantos numeros repetidos hay en la fila
     
     # columnas
-    for col in zip(*grid):
-        errores += 9 - len(set(col))
+    for col in zip(*grid): #Convierte filas en columnas 
+        errores += 9 - len(set(col)) #Cuenta cuantos numeros repetidos hay en las columnas ,  9 - (Numeros unicos)
     
-    return errores
+    return errores #Entre menor sea el numeros de errores, mejor solucion
 
 
 def get_neighbor(grid, fixed):
     new_grid = [row[:] for row in grid]
     
-    box_row = random.randint(0, 2) * 3
-    box_col = random.randint(0, 2) * 3
+    #Selecciona un subcuadro 3*3 
+    box_row = random.randint(0, 2) * 3 
+    box_col = random.randint(0, 2) * 3 
     
     cells = []
     for i in range(3):
         for j in range(3):
-            r, c = box_row + i, box_col + j
-            if not fixed[r][c]:
-                cells.append((r, c))
+            r, c = box_row + i, box_col + j #Recorres las posiciones dentro del subcuadro 3x3
+            if not fixed[r][c]: #si NO es fija (se puede cambiar)
+                cells.append((r, c)) #Guarda las posiciones de las celdas modificables 
     
     if len(cells) >= 2:
-        a, b = random.sample(cells, 2)
-        new_grid[a[0]][a[1]], new_grid[b[0]][b[1]] = new_grid[b[0]][b[1]], new_grid[a[0]][a[1]]
+        a, b = random.sample(cells, 2) #Elige 2 posiciones aleatorias distintas
+        new_grid[a[0]][a[1]], new_grid[b[0]][b[1]] = new_grid[b[0]][b[1]], new_grid[a[0]][a[1]] #Intercambia los valores 
     
-    return new_grid
+    return new_grid ## Devuelve un tablero ligeramente modificado
 
 
-def simulated_annealing(grid, max_iter=20000, temp=1.0, cooling=0.995):
+def simulated_annealing(grid, max_iter=20000, temp=1.0, cooling=0.995):#Parametros (grid-- tablero original,max_iter--Numero maximo de iteraciones, temp-- temperatura inicial, valor de enfriamiento
     
-    fixed = [[grid[r][c] != 0 for c in range(9)] for r in range(9)]
+    fixed = [[grid[r][c] != 0 for c in range(9)] for r in range(9)] # Matriz que indica qué celdas son fijas (True) y cuáles se pueden modificar (False)
     
-    current = initial_solution(grid)
-    current_cost = cost(current)
+    current = initial_solution(grid) #Genera una solucion inicial  aleatoria (aunque no este correcta)
+    current_cost = cost(current) # Calcula el número de errores de la solución actual
     
-    best = current
+    #Guarda la mejor solucion encontrada
+    best = current 
     best_cost = current_cost
 
-    for _ in range(max_iter):
-        candidate = get_neighbor(current, fixed)
-        candidate_cost = cost(candidate)
+    for _ in range(max_iter): 
+        candidate = get_neighbor(current, fixed) #Genera una nueva solucion  vecina a partir de la actual 
+        candidate_cost = cost(candidate) # Calcula el costo (número de errores) de la solución candidata
         
-        diff = candidate_cost - current_cost
+        diff = candidate_cost - current_cost # Calcula la diferencia entre el costo nuevo y el actual
         
-        if diff < 0 or random.random() < math.exp(-diff / temp):
-            current = candidate
-            current_cost = candidate_cost
+
+        # Se acepta la nueva solución si:
+        # 1. Es mejor (menos errores)
+        # 2. O, aunque sea peor, se acepta con cierta probabilidad
+        if diff < 0 or random.random() < math.exp(-diff / temp): #Escapa de soluciones malas locales
+            current = candidate #Actualiza la solucion mejor   
+            current_cost = candidate_cost  #Actualiza el costo de la nueva solucion 
             
-            if candidate_cost < best_cost:
-                best = candidate
-                best_cost = candidate_cost
+            if candidate_cost < best_cost: # Si es la mejor encontrada hasta ahora, entonces:
+                best = candidate # Guarda esta solución como la mejor
+                best_cost = candidate_cost #Guarda su costo
         
-        temp *= cooling
+        temp *= cooling  # Reduce la temperatura (enfriamiento)
         
-        if best_cost == 0:
-            break
+        if best_cost == 0:  # Si ya no hay errores (solución perfecta)
+            break  # Termina antes del límite de iteraciones
     
     return best
 
