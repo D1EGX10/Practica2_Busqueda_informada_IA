@@ -3,6 +3,7 @@ import random
 import sys
 import time
 import tracemalloc
+import math
 
 # --- CONFIGURACIÓN INICIAL ---
 pygame.init()
@@ -16,13 +17,46 @@ WHITE, BLACK, BLUE, RED = (255, 255, 255), (0, 0, 0), (0, 0, 255), (200, 0, 0)
 font_num = pygame.font.SysFont("calibri", 40, bold=True)
 font_ui = pygame.font.SysFont("calibri", 20)
 
+#Implementacion de la IA
+def simulated_annealing(grid, max_iter=10000, temp=1.0, cooling=0.99):
+    
+    # celdas fijas
+    fixed = [[grid[r][c] != 0 for c in range(9)] for r in range(9)]
+    
+    current = initial_solution(grid)
+    current_cost = cost(current)
+    
+    best = current
+    best_cost = current_cost
+
+    for i in range(max_iter):
+        candidate = get_neighbor(current, fixed)
+        candidate_cost = cost(candidate)
+        
+        diff = candidate_cost - current_cost
+        
+        # criterio de aceptación (igual que tu página)
+        if diff < 0 or random.random() < math.exp(-diff / temp):
+            current = candidate
+            current_cost = candidate_cost
+            
+            if candidate_cost < best_cost:
+                best = candidate
+                best_cost = candidate_cost
+        
+        temp *= cooling
+        
+        if best_cost == 0:
+            break
+    
+    return best
+
+
 
 # --- FUNCIONES DE DIBUJO ---
 
 def generate_sudoku(empty_cells):
     grid = [[0 for _ in range(9)] for _ in range(9)]
-    # Usamos A* para generar un tablero válido inicial
-    solve_astar(grid)
     for _ in range(empty_cells):
         r, c = random.randint(0, 8), random.randint(0, 8)
         while grid[r][c] == 0: r, c = random.randint(0, 8), random.randint(0, 8)
@@ -60,7 +94,6 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
-            
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1: 
                     grid = generate_sudoku(20); msg = "Nivel: Fácil"
